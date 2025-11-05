@@ -1,0 +1,113 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Test ICE Connectivity</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #fff; }
+    button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 10px 0; }
+    #results { background: #2d2d2d; padding: 15px; border-radius: 5px; margin-top: 20px; }
+    .success { color: #4ec9b0; }
+    .error { color: #f48771; }
+    .info { color: #dcdcaa; }
+    .warning { color: #ce9178; }
+  </style>
+</head>
+<body>
+  <h2>🧪 Test ICE Connectivity</h2>
+  <p>Kiểm tra xem STUN/TURN servers có hoạt động không</p>
+  <button onclick="testICE()">Run Test</button>
+  <button onclick="clearResults()">Clear</button>
+  <div id="results"></div>
+
+  <script>
+    const resultsDiv = document.getElementById('results');
+    
+    function log(message, type = 'info') {
+      const p = document.createElement('p');
+      p.className = type;
+      p.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      resultsDiv.appendChild(p);
+      resultsDiv.scrollTop = resultsDiv.scrollHeight;
+    }
+    
+    function clearResults() {
+      resultsDiv.innerHTML = '';
+    }
+    
+    async function testICE() {
+      clearResults();
+      log('🚀 Bắt đầu test ICE connectivity...', 'info');
+      
+      try {
+        // Fetch ICE servers config
+        log('📡 Đang lấy cấu hình ICE servers...', 'info');
+        const resp = await fetch('/config');
+        const config = await resp.json();
+        log(`✅ Nhận được ${config.iceServers.length} ICE servers`, 'success');
+        
+        config.iceServers.forEach((server, i) => {
+          log(`  ${i+1}. ${server.urls}`, 'info');
+        });
+        
+        // Create RTCPeerConnection
+        log('🔌 Tạo RTCPeerConnection...', 'info');
+        const pc = new RTCPeerConnection(config);
+        
+        let candidateCount = 0;
+        let hasRelay = false;
+        let hasHost = false;
+        let hasSrflx = false;
+        
+        pc.onicecandidate = (event) => {
+          if (event.candidate) {
+            candidateCount++;
+            const candidate = event.candidate.candidate;
+            log(`ICE Candidate ${candidateCount}: ${candidate}`, 'info');
+            
+            if (candidate.includes('typ relay')) {
+              hasRelay = true;
+              log('  ✅ RELAY candidate (TURN) - Tốt!', 'success');
+            } else if (candidate.includes('typ host')) {
+              hasHost = true;
+              log('  ℹ️ HOST candidate (local)', 'info');
+            } else if (candidate.includes('typ srflx')) {
+              hasSrflx = true;
+              log('  ✅ SRFLX candidate (STUN) - Tốt!', 'success');
+            }
+          } else {
+            // ICE gathering completed
+            log('🏁 ICE gathering hoàn tất', 'success');
+            log(`📊 Tổng kết:`, 'info');
+            log(`  - Host candidates: ${hasHost ? '✅' : '❌'}`, hasHost ? 'success' : 'error');
+            log(`  - SRFLX candidates (STUN): ${hasSrflx ? '✅' : '❌'}`, hasSrflx ? 'success' : 'error');
+            log(`  - RELAY candidates (TURN): ${hasRelay ? '✅' : '❌'}`, hasRelay ? 'success' : 'warning');
+            
+            if (hasRelay) {
+              log('🎉 TURN server hoạt động! Có thể kết nối qua mạng khác nhau.', 'success');
+            } else if (hasSrflx) {
+              log('⚠️ Chỉ có STUN. Có thể kết nối nếu NAT không quá nghiêm ngặt.', 'warning');
+            } else {
+              log('❌ Không có STUN/TURN candidates. Chỉ kết nối được cùng mạng LAN.', 'error');
+            }
+          }
+        };
+        
+        pc.onicegatheringstatechange = () => {
+          log(`ICE gathering state: ${pc.iceGatheringState}`, 'info');
+        };
+        
+        // Create offer to trigger ICE gathering
+        log('📝 Tạo offer để trigger ICE gathering...', 'info');
+        const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+        await pc.setLocalDescription(offer);
+        log('✅ Offer created, đang thu thập ICE candidates...', 'success');
+        
+      } catch (error) {
+        log(`❌ Error: ${error.message}`, 'error');
+        console.error(error);
+      }
+    }
+  </script>
+</body>
+</html>

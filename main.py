@@ -22,6 +22,14 @@ async def index():
         return HTMLResponse(f.read())
 
 
+@app.get("/test")
+async def test_ice():
+    """Trang test ICE connectivity"""
+    html_path = os.path.join("static", "test-ice.html")
+    with open(html_path, "r", encoding="utf-8") as f:
+        return HTMLResponse(f.read())
+
+
 @app.get("/config")
 async def get_config():
     """Trả về cấu hình ICE servers (STUN/TURN)"""
@@ -37,7 +45,9 @@ async def get_config():
         # Google STUN servers
         {"urls": "stun:stun.l.google.com:19302"},
         {"urls": "stun:stun1.l.google.com:19302"},
+        {"urls": "stun:stun2.l.google.com:19302"},
         # TURN servers miễn phí (có thể thay bằng server riêng)
+        # OpenRelay - free TURN server
         {
             "urls": "turn:openrelay.metered.ca:80",
             "username": "openrelayproject",
@@ -50,6 +60,17 @@ async def get_config():
         },
         {
             "urls": "turn:openrelay.metered.ca:443?transport=tcp",
+            "username": "openrelayproject",
+            "credential": "openrelayproject"
+        },
+        # Backup TURN servers
+        {
+            "urls": "turn:relay.metered.ca:80",
+            "username": "openrelayproject",
+            "credential": "openrelayproject"
+        },
+        {
+            "urls": "turn:relay.metered.ca:443",
             "username": "openrelayproject",
             "credential": "openrelayproject"
         }
@@ -94,24 +115,49 @@ async def websocket_endpoint(websocket: WebSocket):
     if room not in rooms:
         rooms[room] = set()
     rooms[room].add(websocket)
-    print(f"🔗 Client joined room: {room} | Total: {len(rooms[room])}")
+    
+    # Log với client info
+    client_ip = websocket.client.host if websocket.client else "unknown"
+    print(f"🔗 Client ({client_ip}) joined room: {room} | Total: {len(rooms[room])}")
 
     try:
         while True:
             data = await websocket.receive_text()
+            
+            # Log signaling messages để debug
+            try:
+                import json
+                msg = json.loads(data)
+                print(f"📤 [{room}] {client_ip} → {msg.get('type', 'unknown')}")
+            except:
+                pass
+            
             # Gửi lại dữ liệu cho các client khác trong cùng room
+            sent_count = 0
             for client in list(rooms[room]):
                 if client != websocket:
                     try:
                         await client.send_text(data)
-                    except Exception:
-                        rooms[room].remove(client)
+                        sent_count += 1
+                    except Exception as e:
+                        print(f"⚠️ Failed to send to client: {e}")
+                        if client in rooms[room]:
+                            rooms[room].remove(client)
+            
+            if sent_count == 0 and len(rooms[room]) > 1:
+                print(f"⚠️ [{room}] Message not forwarded - check room state")
+                
     except WebSocketDisconnect:
         # Client rời room
-        rooms[room].remove(websocket)
-        print(f"❌ Client left room: {room} | Remaining: {len(rooms[room])}")
+        if websocket in rooms[room]:
+            rooms[room].remove(websocket)
+        print(f"❌ Client ({client_ip}) left room: {room} | Remaining: {len(rooms[room])}")
         if not rooms[room]:
             del rooms[room]
+    except Exception as e:
+        print(f"❌ WebSocket error: {e}")
+        if websocket in rooms.get(room, set()):
+            rooms[room].remove(websocket)
 
 
 # Render tự động chạy uvicorn main:app --host 0.0.0.0 --port $PORT

@@ -55,13 +55,36 @@
     // Log ICE connection state để debug
     pc.oniceconnectionstatechange = () => {
       console.log("ICE connection state:", pc.iceConnectionState);
-      if (pc.iceConnectionState === "failed" || pc.iceConnectionState === "disconnected") {
+      iceStatusEl.textContent = `🔌 ICE State: ${pc.iceConnectionState}`;
+      
+      if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") {
+        iceStatusEl.style.color = "#00aa00";
+        iceStatusEl.textContent = `✅ ICE State: ${pc.iceConnectionState} - Đã kết nối!`;
+      } else if (pc.iceConnectionState === "failed") {
+        iceStatusEl.style.color = "#cc0000";
+        iceStatusEl.textContent = "❌ ICE failed - Không thể kết nối (cần TURN server tốt hơn)";
         console.warn("ICE connection failed - có thể cần TURN server tốt hơn");
+      } else if (pc.iceConnectionState === "disconnected") {
+        iceStatusEl.style.color = "#ff9900";
+        iceStatusEl.textContent = "⚠️ ICE disconnected - Mất kết nối";
+      } else {
+        iceStatusEl.style.color = "#0066cc";
       }
     };
 
     pc.onconnectionstatechange = () => {
       console.log("Connection state:", pc.connectionState);
+      connectionStatusEl.textContent = `📡 Connection: ${pc.connectionState}`;
+      
+      if (pc.connectionState === "connected") {
+        connectionStatusEl.style.color = "#00aa00";
+        connectionStatusEl.textContent = "✅ Connection: connected - Thành công!";
+      } else if (pc.connectionState === "failed") {
+        connectionStatusEl.style.color = "#cc0000";
+        connectionStatusEl.textContent = "❌ Connection failed";
+      } else {
+        connectionStatusEl.style.color = "#0066cc";
+      }
     };
 
     ws = connectWebSocket(room);
@@ -110,6 +133,8 @@
   }
 
   const statusEl = document.getElementById("status");
+  const iceStatusEl = document.getElementById("iceStatus");
+  const connectionStatusEl = document.getElementById("connectionStatus");
   
   joinBtn.onclick = async () => {
     joinBtn.disabled = true;

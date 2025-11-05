@@ -15,7 +15,11 @@
   <p style="font-size:12px; color:#666;">✅ Hỗ trợ kết nối qua Internet với TURN server</p>
   <input id="roomInput" value="room1" />
   <button id="joinBtn">Join</button>
-  <p id="status" style="font-size:12px; margin-top:10px;"></p>
+  <div id="statusBox" style="margin-top:15px; padding:10px; background:#f0f0f0; border-radius:5px;">
+    <p id="status" style="font-size:12px; margin:5px 0;"></p>
+    <p id="iceStatus" style="font-size:12px; margin:5px 0; color:#0066cc;"></p>
+    <p id="connectionStatus" style="font-size:12px; margin:5px 0; color:#0066cc;"></p>
+  </div>
 
   <div>
     <video id="localVideo" autoplay playsinline muted></video>
