@@ -10,10 +10,12 @@
   </style>
 </head>
 <body>
-  <h2>📞 Python WebRTC Video Call (FastAPI + Render)</h2>
+  <h2>📞 Python WebRTC Video Call (Hỗ trợ khác mạng)</h2>
   <p>Nhập room ID (giống nhau giữa 2 máy) để gọi thử:</p>
+  <p style="font-size:12px; color:#666;">✅ Hỗ trợ kết nối qua Internet với TURN server</p>
   <input id="roomInput" value="room1" />
   <button id="joinBtn">Join</button>
+  <p id="status" style="font-size:12px; margin-top:10px;"></p>
 
   <div>
     <video id="localVideo" autoplay playsinline muted></video>

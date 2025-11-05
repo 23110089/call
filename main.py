@@ -32,18 +32,45 @@ async def get_config():
         except Exception:
             pass
 
-    # Nếu không có ICE_SERVERS_JSON, dùng fallback
-    stun = os.getenv("STUN_URL", "stun:stun.l.google.com:19302")
+    # ICE servers mặc định - hỗ trợ kết nối qua các mạng khác nhau
+    iceServers = [
+        # Google STUN servers
+        {"urls": "stun:stun.l.google.com:19302"},
+        {"urls": "stun:stun1.l.google.com:19302"},
+        # TURN servers miễn phí (có thể thay bằng server riêng)
+        {
+            "urls": "turn:openrelay.metered.ca:80",
+            "username": "openrelayproject",
+            "credential": "openrelayproject"
+        },
+        {
+            "urls": "turn:openrelay.metered.ca:443",
+            "username": "openrelayproject",
+            "credential": "openrelayproject"
+        },
+        {
+            "urls": "turn:openrelay.metered.ca:443?transport=tcp",
+            "username": "openrelayproject",
+            "credential": "openrelayproject"
+        }
+    ]
+    
+    # Cho phép override bằng biến môi trường
+    stun = os.getenv("STUN_URL")
     turn = os.getenv("TURN_URL")
-    iceServers = [{"urls": stun}]
-    if turn:
-        turn_user = os.getenv("TURN_USER", "")
-        turn_pass = os.getenv("TURN_PASS", "")
-        iceServers.append({
-            "urls": turn,
-            "username": turn_user,
-            "credential": turn_pass
-        })
+    if stun or turn:
+        iceServers = []
+        if stun:
+            iceServers.append({"urls": stun})
+        if turn:
+            turn_user = os.getenv("TURN_USER", "")
+            turn_pass = os.getenv("TURN_PASS", "")
+            iceServers.append({
+                "urls": turn,
+                "username": turn_user,
+                "credential": turn_pass
+            })
+    
     return JSONResponse(content={"iceServers": iceServers})
 
 
