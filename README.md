@@ -1,146 +1,190 @@
-# WebRTC Video Call - Python FastAPI
+# 🎥 WebRTC Video Call - Self-Hosted TURN
 
-Ứng dụng gọi video P2P sử dụng WebRTC, hỗ trợ kết nối **qua các mạng khác nhau** (không chỉ cùng LAN).
+Video calling app với P2P WebRTC, tích hợp **self-hosted TURN server** để kết nối qua các mạng khác nhau.
 
-## 🚀 Tính năng
+## 🌟 Features
 
-- ✅ Video call P2P với WebRTC
-- ✅ Hỗ trợ kết nối qua Internet (khác mạng)
-- ✅ TURN server để bypass NAT/Firewall
-- ✅ Signaling server với WebSocket
-- ✅ Room-based (nhiều người có thể join cùng room)
+- ✅ P2P video calling với WebRTC
+- ✅ **Self-hosted TURN server** (coturn) - không cần service bên thứ 3
+- ✅ Clean code, well-structured
+- ✅ Auto-detect external IP
+- ✅ ICE restart on failure
+- ✅ Real-time connection status
+- ✅ Room-based (multi-user support)
 
-## 📋 Yêu cầu
+## 🏗️ Architecture
 
-```bash
-pip install fastapi uvicorn websockets
+```
+app/
+├── main.py          # FastAPI app entry point
+├── config.py        # Configuration & settings
+├── routes/
+│   ├── main_routes.py      # HTTP endpoints
+│   └── websocket_routes.py # WebSocket signaling
+└── services/
+    └── signaling.py         # Signaling logic
+
+static/
+├── index.html       # Main UI
+├── client.js        # WebRTC client (OOP)
+└── test-ice.html    # ICE connectivity test
+
+config/
+├── turnserver.conf  # Coturn configuration
+└── supervisord.conf # Process manager
+
+start.sh             # Startup script (FastAPI + TURN)
 ```
 
-## 🏃 Chạy local
+## 🚀 Quick Start
+
+### Local Development
 
 ```bash
-# Cài đặt dependencies
+# 1. Install dependencies
 pip install -r requirements.txt
 
-# Chạy server
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-Truy cập: http://localhost:8000
-
-## 🌐 Deploy lên Internet (để gọi khác mạng)
-
-### Cách 1: Deploy lên Render.com (Miễn phí)
-
-1. Push code lên GitHub
-2. Tạo tài khoản tại [Render.com](https://render.com)
-3. Tạo "New Web Service"
-4. Kết nối với GitHub repo
-5. Cấu hình:
-   - Build Command: `pip install -r requirements.txt`
-   - Start Command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-6. Deploy!
-
-### Cách 2: Deploy lên Railway.app
-
-1. Push code lên GitHub
-2. Tạo tài khoản [Railway.app](https://railway.app)
-3. New Project → Deploy from GitHub
-4. Railway tự động detect và deploy
-
-### Cách 3: Deploy lên VPS (có IP public)
-
-```bash
-# SSH vào VPS
-ssh user@your-server-ip
-
-# Clone repo
-git clone https://github.com/yourusername/video-call.git
-cd video-call
-
-# Cài đặt
-pip install -r requirements.txt
-
-# Chạy với Nginx + systemd
-sudo nano /etc/systemd/system/videocall.service
-```
-
-File service:
-```ini
-[Unit]
-Description=Video Call WebRTC
-After=network.target
-
-[Service]
-User=www-data
-WorkingDirectory=/path/to/video-call
-Environment="PATH=/usr/bin"
-ExecStart=/usr/bin/uvicorn main:app --host 0.0.0.0 --port 8000
-
-[Install]
-WantedBy=multi-user.target
-```
-
-```bash
-sudo systemctl enable videocall
-sudo systemctl start videocall
-```
-
-## 🔧 Cấu hình TURN Server (Quan trọng!)
-
-App đã tích hợp TURN server miễn phí mặc định, nhưng nếu muốn performance tốt hơn, bạn có thể:
-
-### Option 1: Sử dụng TURN server miễn phí khác
-
-- [Metered TURN](https://www.metered.ca/turn-server) - 50GB free/tháng
-- [Twilio TURN](https://www.twilio.com/stun-turn) - free tier
-
-### Option 2: Tự host TURN server (coturn)
-
-```bash
-# Cài coturn trên Ubuntu
+# 2. Install coturn (optional, for TURN)
+# Ubuntu/Debian:
 sudo apt install coturn
 
-# Cấu hình /etc/turnserver.conf
-listening-port=3478
-fingerprint
-lt-cred-mech
-user=username:password
-realm=yourdomain.com
+# macOS:
+brew install coturn
+
+# 3. Run
+chmod +x start.sh
+./start.sh
 ```
 
-Sau đó set biến môi trường:
+Truy cập: http://localhost:8080
+
+### Deploy lên Render
+
+**1. Push code lên GitHub**
+
+**2. Tạo Web Service trên Render:**
+- Build Command: `pip install -r requirements.txt`
+- Start Command: `./start.sh`
+
+**3. Environment Variables** (optional):
 ```bash
-export TURN_URL=turn:yourdomain.com:3478
-export TURN_USER=username
-export TURN_PASS=password
+# TURN Configuration
+TURN_ENABLED=true
+TURN_USER=webrtc
+TURN_PASS=your-strong-password
+
+# Server will auto-detect EXTERNAL_IP
+# Or set manually:
+# EXTERNAL_IP=your.server.ip
 ```
 
-## 🧪 Test kết nối
+**4. Ports (nếu deploy VPS):**
+- 8080: FastAPI app
+- 3478: TURN/STUN (UDP/TCP)
+- 5349: TURN/STUN over TLS
+- 49152-49252: TURN relay ports
 
-1. Deploy app lên server public (ví dụ: https://your-app.onrender.com)
-2. Mở trên 2 máy **khác mạng** (ví dụ: 1 máy dùng WiFi nhà, 1 máy dùng 4G)
-3. Cả 2 vào cùng 1 URL và nhập cùng 1 room ID
-4. Click "Join" → nếu thấy video của nhau = thành công!
+## 🧪 Testing
 
-## 🐛 Debug
+### Test ICE Connectivity
+Truy cập: `http://your-server/test`
 
-Mở Console (F12) để xem logs:
-- `ICE connection state` - trạng thái kết nối
-- `ICE candidate` - các candidate được tìm thấy
-- Nếu thấy "failed" → cần TURN server tốt hơn
+Kết quả mong muốn:
+```
+✅ HOST candidates: ✅
+✅ SRFLX candidates (STUN): ✅
+🎉 RELAY candidates (TURN): ✅
+```
 
-## 📝 Lưu ý
+### Test Video Call
+1. Mở 2 máy **khác mạng** (WiFi vs 4G)
+2. Cả 2 truy cập: `http://your-server`
+3. Nhập **cùng room ID**
+4. Click "Join"
+5. Xem status box:
+   - `✅ ICE: Connected` = Thành công!
 
-- **Cùng mạng LAN**: Chỉ cần STUN server (Google STUN)
-- **Khác mạng + NAT nghiêm ngặt**: BẮT BUỘC cần TURN server
-- TURN server miễn phí có thể chậm, nên host riêng nếu dùng production
-- Với HTTPS, browser yêu cầu permission cho camera/mic
+## 📖 API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Main video call page |
+| `/test` | GET | ICE connectivity test |
+| `/config` | GET | ICE servers configuration (JSON) |
+| `/health` | GET | Health check |
+| `/ws?room=xxx` | WebSocket | Signaling server |
+
+## 🔧 Configuration
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | 8080 | FastAPI server port |
+| `TURN_ENABLED` | true | Enable/disable TURN server |
+| `TURN_HOST` | 0.0.0.0 | TURN listening address |
+| `TURN_PORT` | 3478 | TURN port |
+| `TURN_USER` | webrtc | TURN username |
+| `TURN_PASS` | webrtc123 | TURN password |
+| `EXTERNAL_IP` | auto-detect | Server public IP |
+
+### Custom ICE Servers
+
+Edit `app/config.py`:
+```python
+STUN_SERVERS: List[str] = [
+    "stun:stun.l.google.com:19302",
+    # Add more...
+]
+```
+
+## 🐛 Troubleshooting
+
+### "ICE connection failed"
+- **Nguyên nhân:** TURN server không hoạt động
+- **Giải pháp:** 
+  - Check logs: `tail -f /var/log/turn/turnserver.log`
+  - Verify coturn đang chạy: `ps aux | grep turnserver`
+  - Test port: `nc -vz localhost 3478`
+
+### "No RELAY candidates"
+- **Nguyên nhân:** Coturn chưa cài hoặc chưa start
+- **Giải pháp:**
+  - Check `TURN_ENABLED=true`
+  - Install: `sudo apt install coturn`
+  - Firewall: Allow ports 3478, 49152-49252
+
+### Deploy lên Render (free tier)
+- Render free tier **không cho install coturn**
+- **Giải pháp:** Set `TURN_ENABLED=false`, dùng STUN only
+- Hoặc: Upgrade to paid plan hoặc dùng VPS
+
+## 📊 Performance
+
+- **Cùng mạng:** < 50ms latency (P2P direct)
+- **Khác mạng + STUN:** < 100ms latency (P2P via public IP)
+- **Symmetric NAT + TURN:** < 150ms latency (relay qua TURN)
 
 ## 🔐 Security
 
-Để production:
-1. Thêm authentication (JWT, OAuth)
-2. Rate limiting
-3. HTTPS (bắt buộc cho WebRTC)
-4. Giới hạn số người/room
+**Production checklist:**
+- [ ] Change `TURN_PASS` to strong password
+- [ ] Enable HTTPS (Let's Encrypt)
+- [ ] Add authentication/authorization
+- [ ] Rate limiting
+- [ ] CORS configuration
+- [ ] Firewall rules
+
+## 📚 Resources
+
+- [WebRTC docs](https://webrtc.org/)
+- [Coturn](https://github.com/coturn/coturn)
+- [FastAPI](https://fastapi.tiangolo.com/)
+
+## 📝 License
+
+MIT
+
+## 🙏 Credits
+
+Built with ❤️ using FastAPI, WebRTC, and Coturn
