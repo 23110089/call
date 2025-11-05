@@ -40,9 +40,26 @@ class SignalingService:
         # Add client to room
         if room not in self.rooms:
             self.rooms[room] = set()
+        
+        # Notify existing peers about new peer
+        is_first_peer = len(self.rooms[room]) == 0
+        for peer in list(self.rooms[room]):
+            try:
+                # Tell existing peer someone joined (they should create offer)
+                await peer.send_text(json.dumps({"type": "peer-joined"}))
+                print(f"📣 Notified existing peer about new joiner")
+            except Exception as e:
+                print(f"⚠️ Failed to notify peer: {e}")
+        
         self.rooms[room].add(websocket)
         
-        print(f"🔗 Client ({client_ip}) joined room: {room} | Total: {len(self.rooms[room])}")
+        print(f"🔗 Client ({client_ip}) joined room: {room} | Total: {len(self.rooms[room])} | First: {is_first_peer}")
+        
+        # Tell new client if they should wait or initiate
+        if is_first_peer:
+            await websocket.send_text(json.dumps({"type": "room-status", "first": True}))
+        else:
+            await websocket.send_text(json.dumps({"type": "room-status", "first": False}))
         
         try:
             # Message handling loop

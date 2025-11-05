@@ -63,15 +63,34 @@ class WebRTCClient {
   }
 
   setupWebSocket() {
-    this.ws.onopen = async () => {
-      const offer = await this.pc.createOffer();
-      await this.pc.setLocalDescription(offer);
-      this.ws.send(JSON.stringify({ type: 'offer', offer }));
+    this.isFirstPeer = false;
+    
+    this.ws.onopen = () => {
+      console.log('WebSocket connected, waiting for room status...');
     };
 
     this.ws.onmessage = async (msg) => {
       const data = JSON.parse(msg.data);
-      if (data.type === 'offer') {
+      console.log('WebSocket message:', data.type);
+      
+      if (data.type === 'room-status') {
+        // Server tells us if we're first or not
+        this.isFirstPeer = data.first;
+        console.log(`Room status: ${this.isFirstPeer ? 'First peer (wait)' : 'Second peer (create offer)'}`);
+        
+        // If NOT first, create offer immediately
+        if (!this.isFirstPeer) {
+          const offer = await this.pc.createOffer();
+          await this.pc.setLocalDescription(offer);
+          this.ws.send(JSON.stringify({ type: 'offer', offer }));
+        }
+      } else if (data.type === 'peer-joined') {
+        // Another peer joined - create offer if we're already here
+        console.log('Peer joined, creating offer...');
+        const offer = await this.pc.createOffer();
+        await this.pc.setLocalDescription(offer);
+        this.ws.send(JSON.stringify({ type: 'offer', offer }));
+      } else if (data.type === 'offer') {
         await this.pc.setRemoteDescription(data.offer);
         const answer = await this.pc.createAnswer();
         await this.pc.setLocalDescription(answer);
