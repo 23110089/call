@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Python WebRTC Video Call</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: sans-serif; text-align: center; margin: 10px; }
+    video { width: 45%; margin: 5px; border: 2px solid #aaa; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h2>📞 Python WebRTC Video Call (FastAPI + Render)</h2>
+  <p>Nhập room ID (giống nhau giữa 2 máy) để gọi thử:</p>
+  <input id="roomInput" value="room1" />
+  <button id="joinBtn">Join</button>
+
+  <div>
+    <video id="localVideo" autoplay playsinline muted></video>
+    <video id="remoteVideo" autoplay playsinline></video>
+  </div>
+
+  <script src="/static/client.js"></script>
+</body>
+</html>
