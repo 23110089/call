@@ -49,6 +49,7 @@ button {
     border-radius: 5px;
     background-color: #007bff;
     color: white;
+    transition: background-color 0.2s; /* Thêm hiệu ứng chuyển động */
 }
 
 button:disabled {
@@ -56,3 +57,12 @@ button:disabled {
     cursor: not-allowed;
 }
 
+/* === STYLE MỚI === */
+/* Style cho các nút khi ở trạng thái "tắt" (Cam/Mic off) */
+button.toggled-off {
+    background-color: #dc3545; /* Màu đỏ */
+}
+
+button.toggled-off:hover {
+    background-color: #c82333; /* Màu đỏ đậm hơn khi hover */
+}

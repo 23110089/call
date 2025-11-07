@@ -15,9 +15,9 @@
     <div class="controls">
         <input type="text" id="roomIdInput" placeholder="Nhập ID phòng...">
         <br>
-        <button id="startButton">1. Bắt đầu</button>
-        <button id="joinButton" disabled>2. Tham gia phòng</button>
-        <button id="hangupButton" disabled>3. Kết thúc</button>
+        <button id="joinButton">1. Tham gia phòng</button> <button id="hangupButton" disabled>2. Kết thúc</button>
+        <button id="toggleCamButton" disabled>Tắt Camera</button>
+        <button id="toggleMicButton" disabled>Tắt Micro</button>
     </div>
 
     <script>
@@ -41,46 +41,45 @@
 
         // === PHẦN 2: LOGIC ỨNG DỤNG (Cập nhật) ===
 
-        const startButton = document.getElementById('startButton');
-        // Đổi tên 'callButton' thành 'joinButton'
+        // Nút 'startButton' đã bị xóa
         const joinButton = document.getElementById('joinButton');
         const hangupButton = document.getElementById('hangupButton');
         const localVideo = document.getElementById('localVideo');
         const remoteVideo = document.getElementById('remoteVideo');
         const roomIdInput = document.getElementById('roomIdInput');
 
+        // Thêm nút điều khiển Cam/Mic
+        const toggleCamButton = document.getElementById('toggleCamButton');
+        const toggleMicButton = document.getElementById('toggleMicButton');
+
         let localStream;
         let remoteStream;
         let pc; // RTCPeerConnection
         let ws; // WebSocket
 
-        startButton.onclick = start;
-        joinButton.onclick = joinRoom; // Đổi từ 'call' sang 'joinRoom'
+        // Xóa startButton.onclick
+        joinButton.onclick = joinRoom;
         hangupButton.onclick = hangup;
+        // Thêm sự kiện click cho nút mới
+        toggleCamButton.onclick = toggleCamera;
+        toggleMicButton.onclick = toggleMicrophone;
 
-        async function start() {
-            console.log('Requesting local stream');
-            startButton.disabled = true;
-            try {
-                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                localVideo.srcObject = localStream;
-                console.log('Received local stream');
-                joinButton.disabled = false; // Mở nút 'Tham gia'
-                
-                // Kết nối đến máy chủ báo hiệu
-                connectToSignaling();
-
-            } catch (e) {
-                alert(`getUserMedia() error: ${e.name}`);
-            }
-        }
+        // Xóa hàm 'start()' cũ
 
         function connectToSignaling() {
+            // ... (Nội dung hàm này giữ nguyên) ...
             console.log('Connecting to signaling server...');
             ws = new WebSocket(SIGNALING_SERVER_URL);
 
             ws.onopen = () => {
                 console.log('Connected to signaling server');
+                // Gửi tin nhắn 'join' NGAY SAU KHI KẾT NỐI
+                const roomId = roomIdInput.value;
+                console.log(`Joining room: ${roomId}`);
+                ws.send(JSON.stringify({ type: 'join', roomId: roomId }));
+
+                // Tạo PeerConnection sẵn sàng
+                if (!pc) createPeerConnection();
             };
 
             ws.onmessage = async (e) => {
@@ -88,7 +87,6 @@
                 console.log('Received message:', message);
 
                 if (message.offer) {
-                    // Nhận được offer, tạo answer
                     if (!pc) createPeerConnection();
                     await pc.setRemoteDescription(new RTCSessionDescription(message.offer));
                     console.log('Creating answer');
@@ -97,26 +95,23 @@
                     ws.send(JSON.stringify({ answer: answer }));
                 
                 } else if (message.answer) {
-                    // Nhận được answer
                     await pc.setRemoteDescription(new RTCSessionDescription(message.answer));
                 
                 } else if (message.candidate) {
-                    // Nhận được ICE candidate
                     try {
                         await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
                     } catch (err) {
                         console.error('Error adding received ice candidate', err);
                     }
-                // THÊM LOGIC MỚI: Server bảo chúng ta tạo offer
                 } else if (message.type === 'createOffer') {
                     console.log('Server requested offer');
                     await createOfferAndSend();
                 } else if (message.type === 'peerLeft') {
                     console.log('Peer left');
-                    // (Tùy chọn) Xử lý khi người kia rời đi
-                    hangup(); // Tự động ngắt kết nối
+                    hangup();
                 } else if (message.error) {
                     alert('Lỗi từ máy chủ: ' + message.error);
+                    hangup(); // Tự động ngắt kết nối nếu phòng đầy
                 }
             };
 
@@ -126,6 +121,7 @@
         }
 
         function createPeerConnection() {
+            // ... (Nội dung hàm này giữ nguyên) ...
             console.log('Creating PeerConnection');
             pc = new RTCPeerConnection(iceConfig);
 
@@ -145,53 +141,65 @@
                 remoteStream.addTrack(event.track);
             };
 
-            localStream.getTracks().forEach(track => {
-                pc.addTrack(track, localStream);
-            });
+            // Thêm các track từ localStream vào PeerConnection
+            if (localStream) {
+                 localStream.getTracks().forEach(track => {
+                    pc.addTrack(track, localStream);
+                });
+            }
         }
 
-        // HÀM MỚI: Để tham gia phòng
-        function joinRoom() {
+        // HÀM joinRoom() ĐƯỢC CẬP NHẬT (thay thế hàm start())
+        async function joinRoom() {
             const roomId = roomIdInput.value;
             if (!roomId) {
                 alert('Vui lòng nhập ID phòng');
                 return;
             }
 
-            if (!ws || ws.readyState !== WebSocket.OPEN) {
-                alert('Chưa kết nối đến máy chủ. Vui lòng thử lại.');
-                return;
-            }
-
-            console.log(`Joining room: ${roomId}`);
-            // Gửi tin nhắn 'join' đến server
-            ws.send(JSON.stringify({ type: 'join', roomId: roomId }));
-
-            // Tạo PeerConnection sẵn sàng
-            if (!pc) createPeerConnection();
-
+            // 1. Vô hiệu hóa các nút điều khiển
             joinButton.disabled = true;
-            hangupButton.disabled = false;
+            roomIdInput.disabled = true; // Không cho đổi phòng khi đang tham gia
+
+            try {
+                // 2. Lấy stream (logic từ hàm start() cũ)
+                console.log('Requesting local stream');
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                localVideo.srcObject = localStream;
+                console.log('Received local stream');
+
+                // 3. Kết nối đến máy chủ báo hiệu
+                connectToSignaling(); // Hàm này sẽ tự động 'join' khi kết nối thành công
+
+                // 4. Kích hoạt các nút điều khiển cuộc gọi
+                hangupButton.disabled = false;
+                toggleCamButton.disabled = false;
+                toggleMicButton.disabled = false;
+
+            } catch (e) {
+                alert(`Không thể lấy camera/micro: ${e.name}`);
+                // Nếu thất bại, kích hoạt lại nút join
+                joinButton.disabled = false;
+                roomIdInput.disabled = false;
+            }
         }
 
-
-        // HÀM 'CALL' CŨ ĐƯỢC ĐỔI TÊN
-        // Hàm này giờ chỉ tạo và gửi offer khi server yêu cầu
+        // HÀM 'CALL' CŨ (Giữ nguyên)
         async function createOfferAndSend() {
+            // ... (Nội dung hàm này giữ nguyên) ...
             console.log('Creating offer as requested');
             if (!pc) {
                 console.error('PeerConnection not ready!');
                 return;
             }
-
             console.log('Creating offer');
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
-
             console.log('Sending offer');
             ws.send(JSON.stringify({ offer: offer }));
         }
 
+        // HÀM hangup() ĐƯỢC CẬP NHẬT
         function hangup() {
             console.log('Hanging up');
             if (pc) {
@@ -209,13 +217,52 @@
             remoteVideo.srcObject = null;
             localVideo.srcObject = null;
 
-            startButton.disabled = false;
-            joinButton.disabled = true; // Đổi từ callButton
+            // Kích hoạt lại nút join (thay vì start)
+            joinButton.disabled = false;
+            roomIdInput.disabled = false;
             hangupButton.disabled = true;
-            if(ws) ws.close(); // Tự động kích hoạt 'onclose' trên server
+
+            // Vô hiệu hóa và reset nút cam/mic
+            toggleCamButton.disabled = true;
+            toggleMicButton.disabled = true;
+            toggleCamButton.textContent = 'Tắt Camera';
+            toggleMicButton.textContent = 'Tắt Micro';
+            toggleCamButton.classList.remove('toggled-off');
+            toggleMicButton.classList.remove('toggled-off');
             
-            // Tải lại trang để sẵn sàng cho cuộc gọi mới
-            // location.reload();
+            if(ws) ws.close();
+        }
+
+        // === HÀM MỚI: Bật/Tắt Camera ===
+        function toggleCamera() {
+            if (!localStream) return;
+            const videoTrack = localStream.getVideoTracks()[0];
+            if (videoTrack) {
+                videoTrack.enabled = !videoTrack.enabled;
+                if (videoTrack.enabled) {
+                    toggleCamButton.textContent = 'Tắt Camera';
+                    toggleCamButton.classList.remove('toggled-off');
+                } else {
+                    toggleCamButton.textContent = 'Bật Camera';
+                    toggleCamButton.classList.add('toggled-off');
+                }
+            }
+        }
+
+        // === HÀM MỚI: Bật/Tắt Micro ===
+        function toggleMicrophone() {
+            if (!localStream) return;
+            const audioTrack = localStream.getAudioTracks()[0];
+            if (audioTrack) {
+                audioTrack.enabled = !audioTrack.enabled;
+                if (audioTrack.enabled) {
+                    toggleMicButton.textContent = 'Tắt Micro';
+                    toggleMicButton.classList.remove('toggled-off');
+                } else {
+                    toggleMicButton.textContent = 'Bật Micro';
+                    toggleMicButton.classList.add('toggled-off');
+                }
+            }
         }
 
     </script>
