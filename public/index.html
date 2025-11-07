@@ -7,52 +7,47 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>WebRTC Video Call (Render + Coturn)</h1>
+    <h1>WebRTC Video Call (Render + Coturn + Rooms)</h1>
     <div class="video-container">
         <video id="localVideo" autoplay playsinline muted></video>
         <video id="remoteVideo" autoplay playsinline></video>
     </div>
     <div class="controls">
+        <input type="text" id="roomIdInput" placeholder="Nhập ID phòng...">
+        <br>
         <button id="startButton">1. Bắt đầu</button>
-        <button id="callButton" disabled>2. Gọi</button>
+        <button id="joinButton" disabled>2. Tham gia phòng</button>
         <button id="hangupButton" disabled>3. Kết thúc</button>
     </div>
 
     <script>
-        // === PHẦN 1: THAY ĐỔI CẤU HÌNH ===
-
-        // 1. THAY ĐỔI ĐỊA CHỈ MÁY CHỦ BÁO HIỆU (RENDER)
-        // Sau khi bạn deploy lên Render, hãy thay đổi URL này
-        // Nó phải bắt đầu bằng wss:// (cho WebSocket an toàn)
-        // Ví dụ: wss://my-webrtc-app.onrender.com
-        // https://callvideo0506.onrender.com
-        const SIGNALING_SERVER_URL = 'wss://callvideo0506.onrender.com'; // ĐỔI THÀNH WSS:// CỦA RENDER SAU KHI DEPLOY
-
-        // 2. CẤU HÌNH STUN/TURN (TỪ VPS CỦA BẠN)
-        // Hãy thay đổi MY_USERNAME và MY_PASSWORD
+        // === PHẦN 1: CẤU HÌNH (Giữ nguyên) ===
+        const SIGNALING_SERVER_URL = 'wss://callvideo0506.onrender.com';
         const iceConfig = {
             'iceServers': [
                 { urls: 'stun:stun.l.google.com:19302' },
                 {
                     urls: 'turn:51.255.83.152:21500?transport=udp',
-                    username: 'nstd', // <-- THAY ĐỔI
-                    credential: '2503'  // <-- THAY ĐỔI
+                    username: 'nstd',
+                    credential: '2503'
                 },
                 {
                     urls: 'turn:51.255.83.152:21500?transport=tcp',
-                    username: 'nstd', // <-- THAY ĐỔI
-                    credential: '2503'  // <-- THAY ĐỔI
+                    username: 'nstd',
+                    credential: '2503'
                 }
             ]
         };
 
-        // === PHẦN 2: LOGIC ỨNG DỤNG ===
+        // === PHẦN 2: LOGIC ỨNG DỤNG (Cập nhật) ===
 
         const startButton = document.getElementById('startButton');
-        const callButton = document.getElementById('callButton');
+        // Đổi tên 'callButton' thành 'joinButton'
+        const joinButton = document.getElementById('joinButton');
         const hangupButton = document.getElementById('hangupButton');
         const localVideo = document.getElementById('localVideo');
         const remoteVideo = document.getElementById('remoteVideo');
+        const roomIdInput = document.getElementById('roomIdInput');
 
         let localStream;
         let remoteStream;
@@ -60,7 +55,7 @@
         let ws; // WebSocket
 
         startButton.onclick = start;
-        callButton.onclick = call;
+        joinButton.onclick = joinRoom; // Đổi từ 'call' sang 'joinRoom'
         hangupButton.onclick = hangup;
 
         async function start() {
@@ -70,7 +65,7 @@
                 localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 localVideo.srcObject = localStream;
                 console.log('Received local stream');
-                callButton.disabled = false;
+                joinButton.disabled = false; // Mở nút 'Tham gia'
                 
                 // Kết nối đến máy chủ báo hiệu
                 connectToSignaling();
@@ -82,12 +77,7 @@
 
         function connectToSignaling() {
             console.log('Connecting to signaling server...');
-            // Thay thế 'ws://localhost:3000' bằng URL của Render
-            const wsUrl = window.location.protocol === 'https:' 
-                ? SIGNALING_SERVER_URL.replace('ws:', 'wss:') 
-                : SIGNALING_SERVER_URL;
-                
-            ws = new WebSocket(wsUrl);
+            ws = new WebSocket(SIGNALING_SERVER_URL);
 
             ws.onopen = () => {
                 console.log('Connected to signaling server');
@@ -117,6 +107,16 @@
                     } catch (err) {
                         console.error('Error adding received ice candidate', err);
                     }
+                // THÊM LOGIC MỚI: Server bảo chúng ta tạo offer
+                } else if (message.type === 'createOffer') {
+                    console.log('Server requested offer');
+                    await createOfferAndSend();
+                } else if (message.type === 'peerLeft') {
+                    console.log('Peer left');
+                    // (Tùy chọn) Xử lý khi người kia rời đi
+                    hangup(); // Tự động ngắt kết nối
+                } else if (message.error) {
+                    alert('Lỗi từ máy chủ: ' + message.error);
                 }
             };
 
@@ -129,7 +129,6 @@
             console.log('Creating PeerConnection');
             pc = new RTCPeerConnection(iceConfig);
 
-            // Gửi ICE candidates đến peer kia
             pc.onicecandidate = (event) => {
                 if (event.candidate) {
                     console.log('Sending ICE candidate');
@@ -137,7 +136,6 @@
                 }
             };
 
-            // Nhận stream từ peer kia
             pc.ontrack = (event) => {
                 console.log('Received remote track');
                 if (!remoteStream) {
@@ -147,25 +145,49 @@
                 remoteStream.addTrack(event.track);
             };
 
-            // Thêm stream của mình vào connection
             localStream.getTracks().forEach(track => {
                 pc.addTrack(track, localStream);
             });
         }
 
-        async function call() {
-            console.log('Starting call');
-            callButton.disabled = true;
-            hangupButton.disabled = false;
+        // HÀM MỚI: Để tham gia phòng
+        function joinRoom() {
+            const roomId = roomIdInput.value;
+            if (!roomId) {
+                alert('Vui lòng nhập ID phòng');
+                return;
+            }
 
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                alert('Chưa kết nối đến máy chủ. Vui lòng thử lại.');
+                return;
+            }
+
+            console.log(`Joining room: ${roomId}`);
+            // Gửi tin nhắn 'join' đến server
+            ws.send(JSON.stringify({ type: 'join', roomId: roomId }));
+
+            // Tạo PeerConnection sẵn sàng
             if (!pc) createPeerConnection();
 
-            // Tạo offer
+            joinButton.disabled = true;
+            hangupButton.disabled = false;
+        }
+
+
+        // HÀM 'CALL' CŨ ĐƯỢC ĐỔI TÊN
+        // Hàm này giờ chỉ tạo và gửi offer khi server yêu cầu
+        async function createOfferAndSend() {
+            console.log('Creating offer as requested');
+            if (!pc) {
+                console.error('PeerConnection not ready!');
+                return;
+            }
+
             console.log('Creating offer');
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
 
-            // Gửi offer qua signaling server
             console.log('Sending offer');
             ws.send(JSON.stringify({ offer: offer }));
         }
@@ -188,9 +210,12 @@
             localVideo.srcObject = null;
 
             startButton.disabled = false;
-            callButton.disabled = true;
+            joinButton.disabled = true; // Đổi từ callButton
             hangupButton.disabled = true;
-            if(ws) ws.close();
+            if(ws) ws.close(); // Tự động kích hoạt 'onclose' trên server
+            
+            // Tải lại trang để sẵn sàng cho cuộc gọi mới
+            // location.reload();
         }
 
     </script>
