@@ -47,6 +47,12 @@ h1 {
     z-index: 2; /* Để video của mình ở trên */
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); /* Thêm bóng đổ cho đẹp */
     background-color: #000; /* Thêm nền đen để dễ nhìn */
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+#localVideo.hidden {
+    opacity: 0;
+    visibility: hidden;
 }
 
 .controls {
@@ -111,4 +117,24 @@ button.toggled-off {
 
 button.toggled-off:hover:not(:disabled) {
     background-color: #c82333; /* Màu đỏ đậm hơn khi hover */
+}
+
+/* === RESPONSIVE CHO MOBILE === */
+@media screen and (max-width: 768px) {
+    #localVideo {
+        width: 120px; /* Thu nhỏ lại trên mobile */
+        max-height: 20vh; /* Giảm chiều cao tối đa */
+        top: 10px; /* Giảm khoảng cách từ trên */
+        right: 10px; /* Giảm khoảng cách từ bên phải */
+    }
+
+    input[type="text"] {
+        width: 150px; /* Thu nhỏ input trên mobile */
+        font-size: 14px;
+    }
+
+    button {
+        padding: 8px 12px; /* Thu nhỏ các nút */
+        font-size: 12px;
+    }
 }

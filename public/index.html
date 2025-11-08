@@ -257,6 +257,7 @@
             toggleMicButton.textContent = 'Tắt Micro';
             toggleCamButton.classList.remove('toggled-off');
             toggleMicButton.classList.remove('toggled-off');
+            localVideo.classList.remove('hidden'); // Đảm bảo video hiện lại
             
             if(ws) ws.close();
         }
@@ -269,9 +270,11 @@
                 if (videoTrack.enabled) {
                     toggleCamButton.textContent = 'Tắt Camera';
                     toggleCamButton.classList.remove('toggled-off');
+                    localVideo.classList.remove('hidden'); // Hiện video
                 } else {
                     toggleCamButton.textContent = 'Bật Camera';
                     toggleCamButton.classList.add('toggled-off');
+                    localVideo.classList.add('hidden'); // Ẩn video
                 }
             }
         }
