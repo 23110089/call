@@ -37,14 +37,16 @@ h1 {
 #localVideo {
     position: absolute; /* Đặt video của mình ở một góc */
     top: 20px; /* Cách lề trên 20px */
-    left: 20px; /* Cách lề trái 20px */
-    width: 160px; /* Kích thước nhỏ */
-    height: 120px;
-    object-fit: cover;
+    right: 20px; /* Cách lề phải 20px - chuyển sang bên phải */
+    width: 200px; /* Tăng kích thước lên một chút */
+    height: auto; /* Tự động điều chỉnh chiều cao để giữ tỉ lệ */
+    max-height: 30vh; /* Giới hạn chiều cao tối đa 30% viewport */
+    object-fit: contain; /* Giữ nguyên tỉ lệ, không cắt video */
     border: 2px solid white; /* Viền trắng */
     border-radius: 8px;
     z-index: 2; /* Để video của mình ở trên */
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); /* Thêm bóng đổ cho đẹp */
+    background-color: #000; /* Thêm nền đen để dễ nhìn */
 }
 
 .controls {
