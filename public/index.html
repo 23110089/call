@@ -51,12 +51,43 @@
         const toggleCamButton = document.getElementById('toggleCamButton');
         const toggleMicButton = document.getElementById('toggleMicButton');
         const switchCameraButton = document.getElementById('switchCameraButton'); // Nút đảo camera
+        const controlsDiv = document.querySelector('.controls'); // Lấy thanh điều khiển
 
         let localStream;
         let remoteStream;
         let pc; // RTCPeerConnection
         let ws; // WebSocket
         let currentCameraId; // Lưu ID của camera đang dùng
+        let hideControlsTimeout; // Biến lưu timeout để ẩn thanh điều khiển
+
+        // === LOGIC TỰ ĐỘNG ẨN/HIỆN THANH ĐIỀU KHIỂN ===
+        function showControls() {
+            controlsDiv.classList.remove('hidden');
+            resetHideControlsTimer();
+        }
+
+        function hideControls() {
+            controlsDiv.classList.add('hidden');
+        }
+
+        function resetHideControlsTimer() {
+            // Xóa timeout cũ nếu có
+            if (hideControlsTimeout) {
+                clearTimeout(hideControlsTimeout);
+            }
+            // Đặt timeout mới để ẩn sau 3 giây
+            hideControlsTimeout = setTimeout(() => {
+                hideControls();
+            }, 3000);
+        }
+
+        // Hiện thanh điều khiển khi di chuyển chuột hoặc chạm màn hình
+        document.addEventListener('mousemove', showControls);
+        document.addEventListener('touchstart', showControls);
+        document.addEventListener('click', showControls);
+
+        // Khởi động timer khi trang load
+        resetHideControlsTimer();
 
         joinButton.onclick = joinRoom;
         hangupButton.onclick = hangup;

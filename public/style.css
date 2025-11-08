@@ -60,6 +60,15 @@ h1 {
     align-items: center;
     gap: 10px; /* Khoảng cách giữa các nút */
     flex-wrap: wrap; /* Cho phép các nút xuống dòng nếu màn hình nhỏ */
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.controls.hidden {
+    opacity: 0;
+    transform: translateY(100%);
+    pointer-events: none;
 }
 
 input[type="text"] {
