@@ -1,5 +1,6 @@
+
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,217 +8,33 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>WebRTC Video Call (Render + Coturn + Rooms)</h1>
-    <div class="video-container">
-        <video id="localVideo" autoplay playsinline muted></video>
-        <video id="remoteVideo" autoplay playsinline></video>
-    </div>
-    <div class="controls">
-        <input type="text" id="roomIdInput" placeholder="Nhập ID phòng...">
-        <br>
-        <button id="startButton">1. Bắt đầu</button>
-        <button id="joinButton" disabled>2. Tham gia phòng</button>
-        <button id="hangupButton" disabled>3. Kết thúc</button>
+    <div id="join-screen">
+        <div class="join-box">
+            <h1>Video Call</h1>
+            <p>Enter a Room ID to start or join a call.</p>
+            <input type="text" id="roomIdInput" placeholder="Enter Room ID" />
+            <button id="joinButton">Join Call</button>
+        </div>
     </div>
 
-    <script>
-        // === PHẦN 1: CẤU HÌNH (Giữ nguyên) ===
-        const SIGNALING_SERVER_URL = 'wss://callvideo0506.onrender.com';
-        const iceConfig = {
-            'iceServers': [
-                { urls: 'stun:stun.l.google.com:19302' },
-                {
-                    urls: 'turn:51.255.83.152:21500?transport=udp',
-                    username: 'nstd',
-                    credential: '2503'
-                },
-                {
-                    urls: 'turn:51.255.83.152:21500?transport=tcp',
-                    username: 'nstd',
-                    credential: '2503'
-                }
-            ]
-        };
-
-        // === PHẦN 2: LOGIC ỨNG DỤNG (Cập nhật) ===
-
-        const startButton = document.getElementById('startButton');
-        // Đổi tên 'callButton' thành 'joinButton'
-        const joinButton = document.getElementById('joinButton');
-        const hangupButton = document.getElementById('hangupButton');
-        const localVideo = document.getElementById('localVideo');
-        const remoteVideo = document.getElementById('remoteVideo');
-        const roomIdInput = document.getElementById('roomIdInput');
-
-        let localStream;
-        let remoteStream;
-        let pc; // RTCPeerConnection
-        let ws; // WebSocket
-
-        startButton.onclick = start;
-        joinButton.onclick = joinRoom; // Đổi từ 'call' sang 'joinRoom'
-        hangupButton.onclick = hangup;
-
-        async function start() {
-            console.log('Requesting local stream');
-            startButton.disabled = true;
-            try {
-                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                localVideo.srcObject = localStream;
-                console.log('Received local stream');
-                joinButton.disabled = false; // Mở nút 'Tham gia'
-                
-                // Kết nối đến máy chủ báo hiệu
-                connectToSignaling();
-
-            } catch (e) {
-                alert(`getUserMedia() error: ${e.name}`);
-            }
-        }
-
-        function connectToSignaling() {
-            console.log('Connecting to signaling server...');
-            ws = new WebSocket(SIGNALING_SERVER_URL);
-
-            ws.onopen = () => {
-                console.log('Connected to signaling server');
-            };
-
-            ws.onmessage = async (e) => {
-                const message = JSON.parse(e.data);
-                console.log('Received message:', message);
-
-                if (message.offer) {
-                    // Nhận được offer, tạo answer
-                    if (!pc) createPeerConnection();
-                    await pc.setRemoteDescription(new RTCSessionDescription(message.offer));
-                    console.log('Creating answer');
-                    const answer = await pc.createAnswer();
-                    await pc.setLocalDescription(answer);
-                    ws.send(JSON.stringify({ answer: answer }));
-                
-                } else if (message.answer) {
-                    // Nhận được answer
-                    await pc.setRemoteDescription(new RTCSessionDescription(message.answer));
-                
-                } else if (message.candidate) {
-                    // Nhận được ICE candidate
-                    try {
-                        await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
-                    } catch (err) {
-                        console.error('Error adding received ice candidate', err);
-                    }
-                // THÊM LOGIC MỚI: Server bảo chúng ta tạo offer
-                } else if (message.type === 'createOffer') {
-                    console.log('Server requested offer');
-                    await createOfferAndSend();
-                } else if (message.type === 'peerLeft') {
-                    console.log('Peer left');
-                    // (Tùy chọn) Xử lý khi người kia rời đi
-                    hangup(); // Tự động ngắt kết nối
-                } else if (message.error) {
-                    alert('Lỗi từ máy chủ: ' + message.error);
-                }
-            };
-
-            ws.onclose = () => {
-                console.log('Disconnected from signaling server');
-            };
-        }
-
-        function createPeerConnection() {
-            console.log('Creating PeerConnection');
-            pc = new RTCPeerConnection(iceConfig);
-
-            pc.onicecandidate = (event) => {
-                if (event.candidate) {
-                    console.log('Sending ICE candidate');
-                    ws.send(JSON.stringify({ candidate: event.candidate }));
-                }
-            };
-
-            pc.ontrack = (event) => {
-                console.log('Received remote track');
-                if (!remoteStream) {
-                    remoteStream = new MediaStream();
-                    remoteVideo.srcObject = remoteStream;
-                }
-                remoteStream.addTrack(event.track);
-            };
-
-            localStream.getTracks().forEach(track => {
-                pc.addTrack(track, localStream);
-            });
-        }
-
-        // HÀM MỚI: Để tham gia phòng
-        function joinRoom() {
-            const roomId = roomIdInput.value;
-            if (!roomId) {
-                alert('Vui lòng nhập ID phòng');
-                return;
-            }
-
-            if (!ws || ws.readyState !== WebSocket.OPEN) {
-                alert('Chưa kết nối đến máy chủ. Vui lòng thử lại.');
-                return;
-            }
-
-            console.log(`Joining room: ${roomId}`);
-            // Gửi tin nhắn 'join' đến server
-            ws.send(JSON.stringify({ type: 'join', roomId: roomId }));
-
-            // Tạo PeerConnection sẵn sàng
-            if (!pc) createPeerConnection();
-
-            joinButton.disabled = true;
-            hangupButton.disabled = false;
-        }
-
-
-        // HÀM 'CALL' CŨ ĐƯỢC ĐỔI TÊN
-        // Hàm này giờ chỉ tạo và gửi offer khi server yêu cầu
-        async function createOfferAndSend() {
-            console.log('Creating offer as requested');
-            if (!pc) {
-                console.error('PeerConnection not ready!');
-                return;
-            }
-
-            console.log('Creating offer');
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-
-            console.log('Sending offer');
-            ws.send(JSON.stringify({ offer: offer }));
-        }
-
-        function hangup() {
-            console.log('Hanging up');
-            if (pc) {
-                pc.close();
-                pc = null;
-            }
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-                localStream = null;
-            }
-            if (remoteStream) {
-                remoteStream.getTracks().forEach(track => track.stop());
-                remoteStream = null;
-            }
-            remoteVideo.srcObject = null;
-            localVideo.srcObject = null;
-
-            startButton.disabled = false;
-            joinButton.disabled = true; // Đổi từ callButton
-            hangupButton.disabled = true;
-            if(ws) ws.close(); // Tự động kích hoạt 'onclose' trên server
-            
-            // Tải lại trang để sẵn sàng cho cuộc gọi mới
-            // location.reload();
-        }
-
-    </script>
+    <div id="call-screen" class="hidden">
+        <div class="video-container">
+            <video id="remoteVideo" autoplay playsinline></video>
+            <video id="localVideo" autoplay playsinline muted></video>
+            <div id="call-status">Connecting...</div>
+        </div>
+        <div class="controls-container">
+            <button id="micButton" class="control-button">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
+            </button>
+            <button id="cameraButton" class="control-button">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+            </button>
+            <button id="hangupButton" class="control-button hangup">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2.06v1.83a2 2 0 0 1-2.28 2.03 18.63 18.63 0 0 1-18.63-18.63A2 2 0 0 1 4.11 2h1.83a2 2 0 0 1 2.06 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L6.09 9.91a16 16 0 0 0 2.6 3.4z"></path></svg>
+            </button>
+        </div>
+    </div>
+    <script src="script.js"></script>
 </body>
 </html>

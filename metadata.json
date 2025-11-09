@@ -1,0 +1,8 @@
+{
+  "name": "WebRTC Video Call",
+  "description": "A 1-on-1 video calling application using WebRTC, a WebSocket signaling server, and a sleek, modern UI. Users can join rooms using an ID to connect with others.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
