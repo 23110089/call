@@ -1,12 +1,14 @@
 const express = require('express');
 const http = require('http');
 const { WebSocketServer } = require('ws');
+const path = require('path'); // <-- THÊM VÀO
 
 const app = express();
 const server = http.createServer(app);
 
-// Phục vụ các file tĩnh (HTML, CSS) từ thư mục 'public'
-app.use(express.static('public'));
+// THAY ĐỔI: Phục vụ file tĩnh từ thư mục 'dist' ở thư mục GỐC
+// __dirname sẽ là '.../server', vì vậy '..' sẽ đi lên thư mục gốc
+app.use(express.static(path.join(__dirname, '..', 'dist')));
 
 // Khởi tạo máy chủ WebSocket
 const wss = new WebSocketServer({ server });
@@ -91,7 +93,6 @@ wss.on('connection', (ws) => {
         room.forEach(client => {
             if (client.readyState === ws.OPEN) {
                 client.send(JSON.stringify({ type: 'peerLeft' }));
-                // Bạn có thể thêm logic ở client để xử lý 'peerLeft'
             }
         });
 
@@ -106,6 +107,13 @@ wss.on('connection', (ws) => {
   ws.on('error', (error) => {
     console.error('WebSocket error:', error);
   });
+});
+
+// THÊM VÀO: Route "catch-all"
+// Phục vụ file index.html cho mọi route không xác định
+// Điều này cần thiết để React (Vite) có thể xử lý routing phía client
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
 });
 
 // Lắng nghe trên cổng do Render cung cấp (hoặc 3000 khi chạy local)

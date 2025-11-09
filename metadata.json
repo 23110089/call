@@ -1,0 +1,8 @@
+{
+  "name": "Modern Video Call App",
+  "description": "A video call application with a modern UI inspired by popular messaging apps like Zalo and Messenger, built with React and WebRTC.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
