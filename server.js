@@ -1,4 +1,3 @@
-
 const express = require('express');
 const http = require('http');
 const { WebSocketServer } = require('ws');
@@ -6,21 +5,21 @@ const { WebSocketServer } = require('ws');
 const app = express();
 const server = http.createServer(app);
 
-// Serve static files (HTML, CSS, JS) from the 'public' directory
+// Phục vụ các file tĩnh (HTML, CSS) từ thư mục 'public'
 app.use(express.static('public'));
 
-// Initialize WebSocket server
+// Khởi tạo máy chủ WebSocket
 const wss = new WebSocketServer({ server });
 
-// Use a Map to store rooms. Key is roomId, Value is a Set of connections (ws)
+// Dùng Map để lưu các phòng. Key là roomId, Value là một Set các kết nối (ws)
 const rooms = new Map();
 
 console.log("Signaling server (with Rooms) is running...");
 
-// Handle WebSocket connections
+// Xử lý kết nối WebSocket
 wss.on('connection', (ws) => {
   console.log('Client connected');
-  let currentRoomId = null; // Variable to store the room for this client
+  let currentRoomId = null; // Biến để lưu phòng của client này
 
   ws.on('message', (message) => {
     const messageString = message.toString();
@@ -33,17 +32,17 @@ wss.on('connection', (ws) => {
         return;
     }
 
-    // 1. Handle 'join' message
+    // 1. Xử lý tin nhắn 'join'
     if (data.type === 'join') {
         currentRoomId = data.roomId;
         if (!rooms.has(currentRoomId)) {
-            // If room doesn't exist, create a new one
+            // Nếu phòng chưa tồn tại, tạo phòng mới
             rooms.set(currentRoomId, new Set());
         }
         
         const room = rooms.get(currentRoomId);
         
-        // Limit to 2 people per room for 1-on-1 video call
+        // Giới hạn 2 người/phòng cho video call 1-1
         if (room.size >= 2) {
             console.log(`Room ${currentRoomId} is full`);
             ws.send(JSON.stringify({ error: 'Room is full' }));
@@ -51,28 +50,28 @@ wss.on('connection', (ws) => {
             return;
         }
 
-        // Add this client to the room
+        // Thêm client này vào phòng
         room.add(ws);
         console.log(`Client joined room: ${currentRoomId}. Room size: ${room.size}`);
 
-        // 2. If room has 2 people, command the first one to create an 'offer'
+        // 2. Nếu phòng đủ 2 người, ra lệnh cho người đầu tiên tạo 'offer'
         if (room.size === 2) {
-            const firstClient = [...room][0]; // Get the first client
+            const firstClient = [...room][0]; // Lấy client đầu tiên
             if (firstClient && firstClient.readyState === ws.OPEN) {
                  console.log(`Room ${currentRoomId} is ready. Telling client 1 to create offer.`);
-                 // Send 'createOffer' message ONLY to the first client
+                 // Gửi tin nhắn 'createOffer' CHỈ cho client đầu tiên
                  firstClient.send(JSON.stringify({ type: 'createOffer' }));
             }
         }
     
-    // 3. Handle WebRTC messages (offer, answer, candidate)
+    // 3. Xử lý các tin nhắn WebRTC (offer, answer, candidate)
     } else if (currentRoomId && rooms.has(currentRoomId)) {
-        // If client is in a room, relay message to the other peer
+        // Nếu client đã ở trong phòng, gửi tin nhắn cho người còn lại
         console.log(`Relaying message in room ${currentRoomId}`);
         const room = rooms.get(currentRoomId);
         
         room.forEach((client) => {
-            // Only send to the OTHER client in the same room
+            // Chỉ gửi cho client KHÁC trong cùng phòng
             if (client !== ws && client.readyState === ws.OPEN) {
                 client.send(messageString);
             }
@@ -82,21 +81,21 @@ wss.on('connection', (ws) => {
 
   ws.on('close', () => {
     console.log('Client disconnected');
-    // Clean up client from the room when they disconnect
+    // Dọn dẹp client khỏi phòng khi họ ngắt kết nối
     if (currentRoomId && rooms.has(currentRoomId)) {
         const room = rooms.get(currentRoomId);
         room.delete(ws);
         console.log(`Client left room: ${currentRoomId}. Room size: ${room.size}`);
         
-        // (Optional) Notify the remaining peer that the other has left
+        // (Tùy chọn) Báo cho người còn lại là peer đã ngắt kết nối
         room.forEach(client => {
             if (client.readyState === ws.OPEN) {
                 client.send(JSON.stringify({ type: 'peerLeft' }));
-                // You can add logic on the client to handle 'peerLeft'
+                // Bạn có thể thêm logic ở client để xử lý 'peerLeft'
             }
         });
 
-        // Delete the room if it's empty
+        // Xóa phòng nếu rỗng
         if (room.size === 0) {
             rooms.delete(currentRoomId);
             console.log(`Room ${currentRoomId} deleted.`);
@@ -109,7 +108,7 @@ wss.on('connection', (ws) => {
   });
 });
 
-// Listen on the port provided by Render (or 3000 for local development)
+// Lắng nghe trên cổng do Render cung cấp (hoặc 3000 khi chạy local)
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Server is listening on port ${PORT}`);
