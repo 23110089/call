@@ -171,10 +171,25 @@ body, html {
 
 .control-button svg {
     stroke: #fff;
+    position: absolute;
 }
 
 .control-button.hangup {
     background-color: var(--secondary-color);
+}
+
+.control-button .hidden {
+    display: none;
+}
+
+.control-button.toggled-off .mic-on,
+.control-button.toggled-off .camera-on {
+    display: none;
+}
+
+.control-button.toggled-off .mic-off,
+.control-button.toggled-off .camera-off {
+    display: block;
 }
 .control-button.hangup:hover {
     background-color: #d83b54;

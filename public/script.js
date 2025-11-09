@@ -28,6 +28,7 @@ const remoteVideo = document.getElementById('remoteVideo');
 const hangupButton = document.getElementById('hangupButton');
 const micButton = document.getElementById('micButton');
 const cameraButton = document.getElementById('cameraButton');
+const flipCameraButton = document.getElementById('flipCameraButton');
 const callStatus = document.getElementById('call-status');
 
 // === STATE VARIABLES ===
@@ -41,6 +42,7 @@ joinButton.onclick = joinCall;
 hangupButton.onclick = hangup;
 micButton.onclick = toggleMic;
 cameraButton.onclick = toggleCamera;
+flipCameraButton.onclick = flipCamera;
 
 // === FUNCTIONS ===
 
@@ -58,12 +60,24 @@ async function joinCall() {
     await start();
 }
 
+let currentCameraId = null;
+
 async function start() {
     console.log('Requesting local stream');
     try {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        currentCameraId = videoDevices[0]?.deviceId;
+
+        localStream = await navigator.mediaDevices.getUserMedia({
+            video: { deviceId: currentCameraId ? { exact: currentCameraId } : undefined },
+            audio: true
+        });
         localVideo.srcObject = localStream;
         console.log('Received local stream');
+
+        // Show/hide flip button based on available cameras
+        flipCameraButton.style.display = videoDevices.length > 1 ? 'flex' : 'none';
         connectToSignaling();
     } catch (e) {
         alert(`getUserMedia() error: ${e.name}`);
@@ -224,4 +238,52 @@ function toggleCamera() {
         track.enabled = !track.enabled;
         cameraButton.classList.toggle('toggled-off', !track.enabled);
     });
+}
+
+async function flipCamera() {
+    if (!localStream) return;
+
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+
+        if (videoDevices.length <= 1) {
+            return; // No other cameras available
+        }
+
+        // Find the next camera to switch to
+        const currentIndex = videoDevices.findIndex(device => device.deviceId === currentCameraId);
+        const nextIndex = (currentIndex + 1) % videoDevices.length;
+        currentCameraId = videoDevices[nextIndex].deviceId;
+
+        // Stop current tracks
+        localStream.getVideoTracks().forEach(track => track.stop());
+
+        // Get new stream with the next camera
+        const newStream = await navigator.mediaDevices.getUserMedia({
+            video: { deviceId: { exact: currentCameraId } },
+            audio: false
+        });
+
+        // Replace video track in local stream and peer connection
+        const newVideoTrack = newStream.getVideoTracks()[0];
+        const oldVideoTrack = localStream.getVideoTracks()[0];
+        localStream.removeTrack(oldVideoTrack);
+        localStream.addTrack(newVideoTrack);
+
+        // Update local video
+        localVideo.srcObject = localStream;
+
+        // Update the track in the peer connection if it exists
+        if (pc) {
+            const senders = pc.getSenders();
+            const videoSender = senders.find(sender => sender.track?.kind === 'video');
+            if (videoSender) {
+                await videoSender.replaceTrack(newVideoTrack);
+            }
+        }
+    } catch (e) {
+        console.error('Error flipping camera:', e);
+        alert('Failed to flip camera. Please try again.');
+    }
 }
