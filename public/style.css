@@ -179,19 +179,17 @@ body, html {
     background-color: var(--secondary-color);
 }
 
-.mic-off,
-.camera-off {
-    display: none;
+.control-button .slash-line {
+    opacity: 0;
+    transition: opacity 0.2s ease;
 }
 
-.toggled-off .mic-on,
-.toggled-off .camera-on {
-    display: none;
+.control-button.toggled-off .slash-line {
+    opacity: 1;
 }
 
-.toggled-off .mic-off,
-.toggled-off .camera-off {
-    display: block;
+.control-button.toggled-off {
+    background-color: rgba(255, 255, 255, 0.1);
 }
 .control-button.hangup:hover {
     background-color: #d83b54;
