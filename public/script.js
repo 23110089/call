@@ -5,7 +5,16 @@ const SIGNALING_SERVER_URL = `wss://${window.location.host}`;
 const iceConfig = {
     'iceServers': [
         { urls: 'stun:stun.l.google.com:19302' },
-        // You can add your own TURN servers here if needed
+        {
+            urls: 'turn:51.255.83.152:21500?transport=udp',
+            username: 'nstd',
+            credential: '2503'
+        },
+        {
+            urls: 'turn:51.255.83.152:21500?transport=tcp',
+            username: 'nstd',
+            credential: '2503'
+        }
     ]
 };
 
