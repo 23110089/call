@@ -36,6 +36,10 @@ let localStream;
 let pc; // RTCPeerConnection
 let ws; // WebSocket
 let roomId;
+let stunConnected = false;
+let turnConnected = false;
+let stunAttempted = false;
+let turnAttempted = false;
 
 // === EVENT LISTENERS ===
 joinButton.onclick = joinCall;
@@ -136,12 +140,52 @@ function connectToSignaling() {
 
 function createPeerConnection() {
     console.log('Creating PeerConnection');
+    console.log('Attempting STUN connection...');
+    callStatus.textContent = 'Connecting via STUN...';
+    stunAttempted = true;
+    turnAttempted = false;
+    stunConnected = false;
+    turnConnected = false;
+    
     pc = new RTCPeerConnection(iceConfig);
 
     pc.onicecandidate = (event) => {
         if (event.candidate) {
-            console.log('Sending ICE candidate');
+            const candidateStr = event.candidate.candidate;
+            
+            // Detect STUN candidate (srflx = server reflexive)
+            if (candidateStr.includes('typ srflx')) {
+                if (!stunConnected) {
+                    stunConnected = true;
+                    console.log('✓ STUN connection successful!');
+                    callStatus.textContent = 'STUN connection successful! Attempting TURN...';
+                    turnAttempted = true;
+                }
+            }
+            
+            // Detect TURN candidate (relay)
+            if (candidateStr.includes('typ relay')) {
+                if (!turnConnected) {
+                    turnConnected = true;
+                    console.log('✓ TURN connection successful!');
+                    callStatus.textContent = 'TURN connection successful!';
+                }
+            }
+            
             ws.send(JSON.stringify({ candidate: event.candidate }));
+        }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+        console.log(`ICE connection state: ${pc.iceConnectionState}`);
+        
+        if (pc.iceConnectionState === 'failed') {
+            if (!stunConnected && stunAttempted) {
+                console.error('✗ STUN connection failed!');
+            }
+            if (!turnConnected && turnAttempted) {
+                console.error('✗ TURN connection failed!');
+            }
         }
     };
 
