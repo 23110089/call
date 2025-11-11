@@ -240,8 +240,13 @@ function toggleCamera() {
     });
 }
 
+let isFlipping = false;
+
 async function flipCamera() {
-    if (!localStream) return;
+    if (!localStream || isFlipping) return;
+
+    isFlipping = true;
+    flipCameraButton.disabled = true;
 
     try {
         const devices = await navigator.mediaDevices.enumerateDevices();
@@ -285,5 +290,8 @@ async function flipCamera() {
     } catch (e) {
         console.error('Error flipping camera:', e);
         alert('Failed to flip camera. Please try again.');
+    } finally {
+        isFlipping = false;
+        flipCameraButton.disabled = false;
     }
 }
