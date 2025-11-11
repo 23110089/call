@@ -214,6 +214,13 @@ function createPeerConnection() {
     pc.ontrack = (event) => {
         console.log('Received remote track');
         remoteVideo.srcObject = event.streams[0];
+        // Ensure remote video is never mirrored — only local preview uses a mirrored style
+        try {
+            remoteVideo.classList.remove('front-camera');
+            remoteVideo.style.transform = 'none';
+        } catch (e) {
+            // ignore
+        }
         callStatus.classList.add('hidden'); // Hide status when remote video appears
     };
 
