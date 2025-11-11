@@ -71,11 +71,13 @@ function isCameraFront(deviceLabel) {
     // Check if camera label indicates it's a front camera
     return deviceLabel.toLowerCase().includes('front') || 
            deviceLabel.toLowerCase().includes('user') ||
-           deviceLabel.toLowerCase().includes('facing');
+           deviceLabel.toLowerCase().includes('facing') ||
+           deviceLabel.toLowerCase().includes('0'); // Sometimes front camera is index 0
 }
 
 function applyVideoFlip() {
     if (isFrontCamera) {
+        // Only flip the local video PREVIEW element, not the stream
         localVideo.classList.add('front-camera');
     } else {
         localVideo.classList.remove('front-camera');
@@ -214,6 +216,13 @@ function createPeerConnection() {
     pc.ontrack = (event) => {
         console.log('Received remote track');
         remoteVideo.srcObject = event.streams[0];
+        // Ensure remote video is never mirrored — only local preview uses a mirrored style
+        try {
+            remoteVideo.classList.remove('front-camera');
+            remoteVideo.style.transform = 'none';
+        } catch (e) {
+            // ignore
+        }
         callStatus.classList.add('hidden'); // Hide status when remote video appears
     };
 
