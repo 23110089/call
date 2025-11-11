@@ -65,6 +65,22 @@ async function joinCall() {
 }
 
 let currentCameraId = null;
+let isFrontCamera = false;
+
+function isCameraFront(deviceLabel) {
+    // Check if camera label indicates it's a front camera
+    return deviceLabel.toLowerCase().includes('front') || 
+           deviceLabel.toLowerCase().includes('user') ||
+           deviceLabel.toLowerCase().includes('facing');
+}
+
+function applyVideoFlip() {
+    if (isFrontCamera) {
+        localVideo.classList.add('front-camera');
+    } else {
+        localVideo.classList.remove('front-camera');
+    }
+}
 
 async function start() {
     console.log('Requesting local stream');
@@ -72,6 +88,9 @@ async function start() {
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(device => device.kind === 'videoinput');
         currentCameraId = videoDevices[0]?.deviceId;
+        
+        // Check if first camera is front camera
+        isFrontCamera = isCameraFront(videoDevices[0]?.label || '');
 
         localStream = await navigator.mediaDevices.getUserMedia({
             video: { deviceId: currentCameraId ? { exact: currentCameraId } : undefined },
@@ -79,6 +98,9 @@ async function start() {
         });
         localVideo.srcObject = localStream;
         console.log('Received local stream');
+        
+        // Apply video flip if using front camera
+        applyVideoFlip();
 
         // Show/hide flip button based on available cameras
         flipCameraButton.style.display = videoDevices.length > 1 ? 'flex' : 'none';
@@ -304,6 +326,9 @@ async function flipCamera() {
         const currentIndex = videoDevices.findIndex(device => device.deviceId === currentCameraId);
         const nextIndex = (currentIndex + 1) % videoDevices.length;
         currentCameraId = videoDevices[nextIndex].deviceId;
+        
+        // Check if new camera is front camera
+        isFrontCamera = isCameraFront(videoDevices[nextIndex]?.label || '');
 
         // Stop current tracks
         localStream.getVideoTracks().forEach(track => track.stop());
@@ -322,6 +347,9 @@ async function flipCamera() {
 
         // Update local video
         localVideo.srcObject = localStream;
+        
+        // Apply video flip based on camera type
+        applyVideoFlip();
 
         // Update the track in the peer connection if it exists
         if (pc) {

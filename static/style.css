@@ -127,6 +127,10 @@ body, html {
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
 }
 
+#localVideo.front-camera {
+    transform: scaleX(-1);
+}
+
 #call-status {
     position: absolute;
     top: 50%;
