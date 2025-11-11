@@ -5,8 +5,8 @@ const { WebSocketServer } = require('ws');
 const app = express();
 const server = http.createServer(app);
 
-// Phục vụ các file tĩnh (HTML, CSS) từ thư mục 'public'
-app.use(express.static('public'));
+// Phục vụ các file tĩnh (HTML, CSS) từ thư mục 'static'
+app.use(express.static('static'));
 
 // Khởi tạo máy chủ WebSocket
 const wss = new WebSocketServer({ server });
