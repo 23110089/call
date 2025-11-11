@@ -72,7 +72,7 @@ function isCameraFront(deviceLabel) {
     return deviceLabel.toLowerCase().includes('front') || 
            deviceLabel.toLowerCase().includes('user') ||
            deviceLabel.toLowerCase().includes('facing') ||
-           deviceLabel.toLowerCase().includes('0'); // Sometimes front camera is index 0
+           deviceLabel.toLowerCase().includes('0'); //  Sometimes front camera is index 0
 }
 
 function applyVideoFlip() {
