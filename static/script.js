@@ -138,6 +138,12 @@ function connectToSignaling() {
                 break;
             case 'peerLeft':
                 console.log('Peer left the room');
+                // Chỉ ngắt kết nối nếu đó là từ mất kết nối đột ngột, không phải hangup
+                alert('Peer disconnected');
+                hangup();
+                break;
+            case 'peerHangup':
+                console.log('Peer ended the call');
                 hangup();
                 break;
             default:
@@ -277,6 +283,12 @@ async function handleCandidate(candidate) {
 
 function hangup() {
     console.log('Hanging up');
+    
+    // Gửi hangup request tới server trước khi đóng kết nối
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'hangup' }));
+    }
+    
     if (pc) {
         pc.close();
         pc = null;

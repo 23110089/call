@@ -63,6 +63,21 @@ wss.on('connection', (ws) => {
         // Nếu client đã ở trong phòng, gửi tin nhắn cho người còn lại
         const room = rooms.get(currentRoomId);
         
+        // Xử lý hangup request - chỉ xóa phòng khi được yêu cầu rõ ràng
+        if (data.type === 'hangup') {
+            room.forEach(client => {
+                if (client !== ws && client.readyState === ws.OPEN) {
+                    client.send(JSON.stringify({ type: 'peerHangup' }));
+                }
+            });
+            room.delete(ws);
+            // Xóa phòng nếu rỗng
+            if (room.size === 0) {
+                rooms.delete(currentRoomId);
+            }
+            return;
+        }
+        
         room.forEach((client) => {
             // Chỉ gửi cho client KHÁC trong cùng phòng
             if (client !== ws && client.readyState === ws.OPEN) {
